@@ -45,6 +45,9 @@ export function createMarket(marketAddress: string): Market {
   market.underlyingPriceUSD = zeroBD
   market.underlyingPrice = zeroBD
 
+  market.totalInterestAccumulatedExact = BigInt.fromI32(0)
+  market.totalInterestAccumulated = zeroBD
+
   let interestRateModelAddress = contract.try_interestRateModel()
   let reserveFactor = contract.try_reserveFactorMantissa()
 
