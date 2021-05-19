@@ -336,17 +336,10 @@ export function handleLiquidateBorrow(event: LiquidateBorrow): void {
  *    events. So for those events, we do not update cToken balances.
  */
 export function handleTransfer(event: Transfer): void {
-  // We only updateMarket() if accrual block number is not up to date. This will only happen
-  // with normal transfers, since mint, redeem, and seize transfers will already run updateMarket()
+  // We don't updateMarket with normal transfers,
+  // since mint, redeem, and seize transfers will already run updateMarket()
   let marketID = event.address.toHexString()
   let market = Market.load(marketID)
-  if (market.accrualBlockNumber != event.block.number.toI32()) {
-    market = updateMarket(
-      event.address,
-      event.block.number.toI32(),
-      event.block.timestamp.toI32(),
-    )
-  }
 
   let amountUnderlying = market.exchangeRate.times(
     event.params.amount.toBigDecimal().div(cTokenDecimalsBD),
@@ -439,20 +432,7 @@ export function handleTransfer(event: Transfer): void {
 }
 
 export function handleAccrueInterest(event: AccrueInterest): void {
-  let market = updateMarket(
-    event.address,
-    event.block.number.toI32(),
-    event.block.timestamp.toI32(),
-  )
-
-  market.totalInterestAccumulatedExact = market.totalInterestAccumulatedExact.plus(
-    event.params.interestAccumulated,
-  )
-  market.totalInterestAccumulated = market.totalInterestAccumulatedExact
-    .toBigDecimal()
-    .div(exponentToBigDecimal(market.underlyingDecimals))
-    .truncate(market.underlyingDecimals)
-  market.save()
+  updateMarket(event)
 }
 
 export function handleNewReserveFactor(event: NewReserveFactor): void {

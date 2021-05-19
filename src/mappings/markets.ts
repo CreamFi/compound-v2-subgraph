@@ -5,7 +5,7 @@ import { Address, BigDecimal, BigInt, log } from '@graphprotocol/graph-ts'
 import { Market, Comptroller } from '../types/schema'
 import { PriceOracle } from '../types/templates/CToken/PriceOracle'
 import { ERC20 } from '../types/templates/CToken/ERC20'
-import { CToken } from '../types/templates/CToken/CToken'
+import { AccrueInterest, CToken } from '../types/templates/CToken/CToken'
 
 import {
   exponentToBigDecimal,
@@ -73,11 +73,11 @@ export function createMarket(marketAddress: string): Market {
   return market
 }
 
-export function updateMarket(
-  marketAddress: Address,
-  blockNumber: i32,
-  blockTimestamp: i32,
-): Market {
+export function updateMarket(event: AccrueInterest): Market {
+  let marketAddress = event.address
+  let blockNumber = event.block.number.toI32()
+  let blockTimestamp = event.block.timestamp.toI32()
+
   let marketID = marketAddress.toHexString()
   let market = Market.load(marketID)
   if (market == null) {
@@ -89,12 +89,14 @@ export function updateMarket(
     let contractAddress = Address.fromString(market.id)
     let contract = CToken.bind(contractAddress)
 
-    let tokenPrice = getTokenPrice(contractAddress, market.underlyingDecimals)
+    let tokenPrice = market.underlyingPrice
+    // update price every 10 minutes (40 blocks)
+    if (tokenPrice.equals(zeroBD) || blockNumber - market.accrualBlockNumber > 40) {
+      tokenPrice = getTokenPrice(contractAddress, market.underlyingDecimals)
+    }
     market.underlyingPrice = tokenPrice.truncate(market.underlyingDecimals)
     market.underlyingPriceUSD = tokenPrice.truncate(market.underlyingDecimals)
 
-    market.accrualBlockNumber = contract.accrualBlockNumber().toI32()
-    market.blockTimestamp = blockTimestamp
     market.totalSupply = contract
       .totalSupply()
       .toBigDecimal()
@@ -110,56 +112,80 @@ export function updateMarket(
         - Must multiply by ctokenDecimals, 10^8
         - Must div by mantissa, 10^18
      */
-    market.exchangeRate = contract
-      .exchangeRateStored()
-      .toBigDecimal()
-      .div(exponentToBigDecimal(market.underlyingDecimals))
-      .times(cTokenDecimalsBD)
-      .div(mantissaFactorBD)
-      .truncate(mantissaFactor)
-    market.borrowIndex = contract
-      .borrowIndex()
-      .toBigDecimal()
-      .div(mantissaFactorBD)
-      .truncate(mantissaFactor)
 
-    market.reserves = contract
-      .totalReserves()
-      .toBigDecimal()
-      .div(exponentToBigDecimal(market.underlyingDecimals))
-      .truncate(market.underlyingDecimals)
-    market.totalBorrows = contract
-      .totalBorrows()
-      .toBigDecimal()
-      .div(exponentToBigDecimal(market.underlyingDecimals))
-      .truncate(market.underlyingDecimals)
-    market.cash = contract
-      .getCash()
-      .toBigDecimal()
-      .div(exponentToBigDecimal(market.underlyingDecimals))
-      .truncate(market.underlyingDecimals)
+    // Only update if it has not been updated in 40 blocks to speed up syncing process
+    if (
+      market.exchangeRate.equals(zeroBD) ||
+      blockNumber - market.accrualBlockNumber > 40
+    ) {
+      market.exchangeRate = contract
+        .exchangeRateStored()
+        .toBigDecimal()
+        .div(exponentToBigDecimal(market.underlyingDecimals))
+        .times(cTokenDecimalsBD)
+        .div(mantissaFactorBD)
+        .truncate(mantissaFactor)
+    }
 
-    // Must convert to BigDecimal, and remove 10^18 that is used for Exp in Compound Solidity
-    market.borrowRate = contract
-      .borrowRatePerBlock()
+    market.borrowIndex = event.params.borrowIndex
       .toBigDecimal()
-      .times(BigDecimal.fromString('2102400'))
       .div(mantissaFactorBD)
       .truncate(mantissaFactor)
 
-    // This fails on only the first call to cZRX. It is unclear why, but otherwise it works.
-    // So we handle it like this.
-    let supplyRatePerBlock = contract.try_supplyRatePerBlock()
-    if (supplyRatePerBlock.reverted) {
-      log.info('***CALL FAILED*** : cERC20 supplyRatePerBlock() reverted', [])
-      market.supplyRate = zeroBD
-    } else {
-      market.supplyRate = supplyRatePerBlock.value
+    // Only update if it has not been updated in 40 blocks to speed up syncing process
+    if (blockNumber - market.accrualBlockNumber > 40) {
+      market.reserves = contract
+        .totalReserves()
+        .toBigDecimal()
+        .div(exponentToBigDecimal(market.underlyingDecimals))
+        .truncate(market.underlyingDecimals)
+    }
+
+    market.totalBorrows = event.params.totalBorrows
+      .toBigDecimal()
+      .div(exponentToBigDecimal(market.underlyingDecimals))
+      .truncate(market.underlyingDecimals)
+    market.cash = event.params.cashPrior
+      .toBigDecimal()
+      .div(exponentToBigDecimal(market.underlyingDecimals))
+      .truncate(market.underlyingDecimals)
+
+    // Only update if it has not been updated in 40 blocks to speed up syncing process
+    if (blockNumber - market.accrualBlockNumber > 40) {
+      // Must convert to BigDecimal, and remove 10^18 that is used for Exp in Compound Solidity
+      market.borrowRate = contract
+        .borrowRatePerBlock()
         .toBigDecimal()
         .times(BigDecimal.fromString('2102400'))
         .div(mantissaFactorBD)
         .truncate(mantissaFactor)
+
+      // This fails on only the first call to cZRX. It is unclear why, but otherwise it works.
+      // So we handle it like this.
+      let supplyRatePerBlock = contract.try_supplyRatePerBlock()
+      if (supplyRatePerBlock.reverted) {
+        log.info('***CALL FAILED*** : cERC20 supplyRatePerBlock() reverted', [])
+        market.supplyRate = zeroBD
+      } else {
+        market.supplyRate = supplyRatePerBlock.value
+          .toBigDecimal()
+          .times(BigDecimal.fromString('2102400'))
+          .div(mantissaFactorBD)
+          .truncate(mantissaFactor)
+      }
     }
+
+    market.accrualBlockNumber = blockNumber
+    market.blockTimestamp = blockTimestamp
+
+    market.totalInterestAccumulatedExact = market.totalInterestAccumulatedExact.plus(
+      event.params.interestAccumulated,
+    )
+    market.totalInterestAccumulated = market.totalInterestAccumulatedExact
+      .toBigDecimal()
+      .div(exponentToBigDecimal(market.underlyingDecimals))
+      .truncate(market.underlyingDecimals)
+
     market.save()
   }
   return market as Market

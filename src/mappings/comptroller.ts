@@ -6,7 +6,6 @@ import {
   NewCloseFactor,
   NewCollateralFactor,
   NewLiquidationIncentive,
-  NewMaxAssets,
   NewPriceOracle,
   MarketListed,
 } from '../types/Comptroller/Comptroller'
