@@ -90,8 +90,8 @@ export function updateMarket(event: AccrueInterest): Market {
     let contract = CToken.bind(contractAddress)
 
     let tokenPrice = market.underlyingPrice
-    // update price every 10 minutes (40 blocks)
-    if (tokenPrice.equals(zeroBD) || blockNumber - market.accrualBlockNumber > 40) {
+    // update price every 10 minutes (300 blocks)
+    if (tokenPrice.equals(zeroBD) || blockNumber - market.accrualBlockNumber > 300) {
       tokenPrice = getTokenPrice(contractAddress, market.underlyingDecimals)
     }
     market.underlyingPrice = tokenPrice.truncate(market.underlyingDecimals)
@@ -113,10 +113,10 @@ export function updateMarket(event: AccrueInterest): Market {
         - Must div by mantissa, 10^18
      */
 
-    // Only update if it has not been updated in 40 blocks to speed up syncing process
+    // Only update if it has not been updated in 300 blocks to speed up syncing process
     if (
       market.exchangeRate.equals(zeroBD) ||
-      blockNumber - market.accrualBlockNumber > 40
+      blockNumber - market.accrualBlockNumber > 300
     ) {
       market.exchangeRate = contract
         .exchangeRateStored()
@@ -132,8 +132,8 @@ export function updateMarket(event: AccrueInterest): Market {
       .div(mantissaFactorBD)
       .truncate(mantissaFactor)
 
-    // Only update if it has not been updated in 40 blocks to speed up syncing process
-    if (blockNumber - market.accrualBlockNumber > 40) {
+    // Only update if it has not been updated in 300 blocks to speed up syncing process
+    if (blockNumber - market.accrualBlockNumber > 300) {
       market.reserves = contract
         .totalReserves()
         .toBigDecimal()
@@ -150,13 +150,13 @@ export function updateMarket(event: AccrueInterest): Market {
       .div(exponentToBigDecimal(market.underlyingDecimals))
       .truncate(market.underlyingDecimals)
 
-    // Only update if it has not been updated in 40 blocks to speed up syncing process
-    if (blockNumber - market.accrualBlockNumber > 40) {
+    // Only update if it has not been updated in 300 blocks to speed up syncing process
+    if (blockNumber - market.accrualBlockNumber > 300) {
       // Must convert to BigDecimal, and remove 10^18 that is used for Exp in Compound Solidity
       market.borrowRate = contract
         .borrowRatePerBlock()
         .toBigDecimal()
-        .times(BigDecimal.fromString('2102400'))
+        .times(BigDecimal.fromString('15768000'))
         .div(mantissaFactorBD)
         .truncate(mantissaFactor)
 
@@ -169,7 +169,7 @@ export function updateMarket(event: AccrueInterest): Market {
       } else {
         market.supplyRate = supplyRatePerBlock.value
           .toBigDecimal()
-          .times(BigDecimal.fromString('2102400'))
+          .times(BigDecimal.fromString('15768000'))
           .div(mantissaFactorBD)
           .truncate(mantissaFactor)
       }
