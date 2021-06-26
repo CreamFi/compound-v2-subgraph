@@ -13,6 +13,7 @@ import {
 import {
   Market,
   Account,
+  AccountCToken,
   MintEvent,
   RedeemEvent,
   LiquidationEvent,
@@ -294,7 +295,14 @@ export function handleLiquidateBorrow(event: LiquidateBorrow): void {
   // the repay token is the event.address
   let marketRepayToken = Market.load(event.address.toHexString())
   let marketCTokenLiquidated = Market.load(event.params.cTokenCollateral.toHexString())
-  let mintID = event.transaction.hash
+
+  let borrowCTokenStatsID = marketRepayToken.id.concat('-').concat(borrowerID)
+  let borrowCToken = AccountCToken.load(borrowCTokenStatsID)
+
+  let seizeCTokenStatsID = marketCTokenLiquidated.id.concat('-').concat(borrowerID)
+  let seizeCToken = AccountCToken.load(seizeCTokenStatsID)
+
+  let liquidateID = event.transaction.hash
     .toHexString()
     .concat('-')
     .concat(event.transactionLogIndex.toString())
@@ -308,15 +316,18 @@ export function handleLiquidateBorrow(event: LiquidateBorrow): void {
     .div(exponentToBigDecimal(marketRepayToken.underlyingDecimals))
     .truncate(marketRepayToken.underlyingDecimals)
 
-  let liquidation = new LiquidationEvent(mintID)
-  liquidation.amount = cTokenAmount
-  liquidation.to = event.params.liquidator
-  liquidation.from = event.params.borrower
+  let liquidation = new LiquidationEvent(liquidateID)
   liquidation.blockNumber = event.block.number.toI32()
   liquidation.blockTime = event.block.timestamp.toI32()
-  liquidation.underlyingSymbol = marketRepayToken.underlyingSymbol
+  liquidation.liquidator = event.params.liquidator
+  liquidation.borrower = event.params.borrower
+  liquidation.seizeAmount = cTokenAmount
+  liquidation.cToken = event.address
+  liquidation.seizeCToken = event.params.cTokenCollateral
   liquidation.underlyingRepayAmount = underlyingRepayAmount
-  liquidation.cTokenSymbol = marketCTokenLiquidated.symbol
+  liquidation.underlyingSeizeAmount = marketCTokenLiquidated.exchangeRate.times(cTokenAmount)
+  liquidation.borrowerRemainingUnderlyingCollateral = marketCTokenLiquidated.exchangeRate.times(seizeCToken.cTokenBalance)
+  liquidation.borrowerRemainingBorrowBalance = borrowCToken.storedBorrowBalance
   liquidation.save()
 }
 

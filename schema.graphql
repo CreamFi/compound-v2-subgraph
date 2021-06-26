@@ -262,25 +262,31 @@ type RedeemEvent implements CTokenTransfer @entity {
 LiquidationEvent stores information for liquidations. The event is emitted from
 the cToken market address.
 """
-type LiquidationEvent implements CTokenTransfer @entity {
+type LiquidationEvent @entity {
     "Transaction hash concatenated with log index"
     id: ID!
-    "cTokens seized"
-    amount: BigDecimal!
-    "Liquidator receiving tokens"
-    to: Bytes!
-    "Account being liquidated (borrower)"
-    from: Bytes!
     "Block number"
     blockNumber: Int!
     "Block time"
     blockTime: Int!
-    "cToken that was sezied as collateral"
-    cTokenSymbol: String!
-    "Symbol of the underlying asset repaid through liquidation"
-    underlyingSymbol: String!
+    "Liquidator"
+    liquidator: Bytes!
+    "Borrower"
+    borrower: Bytes!
+    "Seized amount of cToken"
+    seizeAmount: BigDecimal!
+    "cToken that was repaid by liquidator"
+    cToken: Bytes!
+    "cToken that was seized by liquidator"
+    seizeCToken: Bytes!
     "Underlying cToken amount that was repaid by liquidator"
     underlyingRepayAmount: BigDecimal!
+    "Underlying cToken amount that was seized by liquidator"
+    underlyingSeizeAmount: BigDecimal!
+    "Remaining Underlying collateral amount of borrower"
+    borrowerRemainingUnderlyingCollateral: BigDecimal!
+    "Remaining borrow balance of borrower"
+    borrowerRemainingBorrowBalance: BigDecimal!
 }
 
 """
