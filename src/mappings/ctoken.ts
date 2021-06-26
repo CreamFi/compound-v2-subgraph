@@ -62,8 +62,8 @@ export function handleMint(event: Mint): void {
 
   let mint = new MintEvent(mintID)
   mint.amount = cTokenAmount
-  mint.to = event.params.minter
-  mint.from = event.address
+  mint.minter = event.params.minter
+  mint.cToken = event.address
   mint.blockNumber = event.block.number.toI32()
   mint.blockTime = event.block.timestamp.toI32()
   mint.cTokenSymbol = market.symbol
@@ -101,8 +101,8 @@ export function handleRedeem(event: Redeem): void {
 
   let redeem = new RedeemEvent(redeemID)
   redeem.amount = cTokenAmount
-  redeem.to = event.address
-  redeem.from = event.params.redeemer
+  redeem.cToken = event.address
+  redeem.redeemer = event.params.redeemer
   redeem.blockNumber = event.block.number.toI32()
   redeem.blockTime = event.block.timestamp.toI32()
   redeem.cTokenSymbol = market.symbol
@@ -178,6 +178,7 @@ export function handleBorrow(event: Borrow): void {
   borrow.blockNumber = event.block.number.toI32()
   borrow.blockTime = event.block.timestamp.toI32()
   borrow.underlyingSymbol = market.underlyingSymbol
+  borrow.cToken = event.address
   borrow.save()
 }
 
@@ -253,6 +254,7 @@ export function handleRepayBorrow(event: RepayBorrow): void {
   repay.blockTime = event.block.timestamp.toI32()
   repay.underlyingSymbol = market.underlyingSymbol
   repay.payer = event.params.payer
+  repay.cToken = event.address
   repay.save()
 }
 

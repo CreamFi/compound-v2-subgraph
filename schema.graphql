@@ -216,15 +216,15 @@ type TransferEvent implements CTokenTransfer @entity {
 MintEvent stores information for mints. From address will always be a cToken
 market address
 """
-type MintEvent implements CTokenTransfer @entity {
+type MintEvent @entity {
     "Transaction hash concatenated with log index"
     id: ID!
     "cTokens transferred"
     amount: BigDecimal!
-    "Account that received tokens (minter)"
-    to: Bytes!
-    "Account that sent tokens (CToken contract)"
-    from: Bytes!
+    "Account that received tokens"
+    minter: Bytes!
+    "cToken of the minted tokens"
+    cToken: Bytes!
     "Block number"
     blockNumber: Int!
     "Block time"
@@ -239,15 +239,15 @@ type MintEvent implements CTokenTransfer @entity {
 RedeemEvent stores information for redeems. To address will always be a
 cToken market address
 """
-type RedeemEvent implements CTokenTransfer @entity {
+type RedeemEvent @entity {
     "Transaction hash concatenated with log index"
     id: ID!
     "cTokens transferred"
     amount: BigDecimal!
-    "Account that received tokens (CToken contract)"
-    to: Bytes!
-    "Account that sent tokens (redeemer)"
-    from: Bytes!
+    "cToken of the redeemed tokens"
+    cToken: Bytes!
+    "Redeemer"
+    redeemer: Bytes!
     "Block number"
     blockNumber: Int!
     "Block time"
@@ -328,6 +328,8 @@ type BorrowEvent implements UnderlyingTransfer @entity {
     blockTime: Int!
     "Symbol of the borrowed underlying asset"
     underlyingSymbol: String!
+    "cToken of the borrowed tokens"
+    cToken: Bytes!
 }
 
 """
@@ -351,4 +353,6 @@ type RepayEvent implements UnderlyingTransfer @entity {
     underlyingSymbol: String!
     "Payer of the borrow funds"
     payer: Bytes!
+    "cToken of the repaid tokens"
+    cToken: Bytes!
 }
