@@ -1,22 +1,19 @@
 /* eslint-disable prefer-const */ // to satisfy AS compiler
 
 // For each division by 10, add one to exponent to truncate one significant figure
-import { Address, BigDecimal, BigInt, log, dataSource } from '@graphprotocol/graph-ts'
-import { Market, Comptroller } from '../types/schema'
+import { Address, BigInt, dataSource } from '@graphprotocol/graph-ts'
+import { Market } from '../types/schema'
 import { ERC20 } from '../types/templates/CToken/ERC20'
-import { AccrueInterest, CToken } from '../types/templates/CToken/CToken'
+import { CToken } from '../types/templates/CToken/CToken'
 
-import {
-  exponentToBigDecimal,
-  mantissaFactor,
-  mantissaFactorBD,
-  cTokenDecimalsBD,
-  zeroBD,
-} from './helpers'
+import { zeroBD } from './helpers'
 
 let network = dataSource.network()
 
-let cETHAddress: string = '0xd06527d5e56a3495252a528c4987003b712860ee'
+let cETHAddress: string =
+  network == 'mainnet'
+    ? '0xd06527d5e56a3495252a528c4987003b712860ee' // mainnet
+    : '0x1ffe17b99b439be0afc831239ddecda2a790ff3a' // bsc
 
 export function createMarket(marketAddress: string): Market {
   let market: Market
