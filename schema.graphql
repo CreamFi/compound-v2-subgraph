@@ -18,9 +18,6 @@ type Comptroller @entity {
 Market stores all high level variables for a cToken market
 """
 type Market @entity {
-    #Fields that match compounds API
-    "Yearly borrow rate. With 2102400 blocks per year"
-    borrowRate: BigDecimal!
     "The cToken contract balance of ERC20 or ETH"
     cash: BigDecimal!
     "Collateral factor determining how much one can borrow"
@@ -31,10 +28,6 @@ type Market @entity {
     interestRateModelAddress: Bytes!
     "Name of the cToken"
     name: String!
-    "Reserves stored in the contract"
-    reserves: BigDecimal!
-    "Yearly supply rate. With 2104400 blocks per year"
-    supplyRate: BigDecimal!
     "CToken symbol"
     symbol: String!
     "CToken address"
@@ -47,8 +40,6 @@ type Market @entity {
     underlyingAddress: Bytes!
     "Underlying token name"
     underlyingName: String!
-    "Underlying price of token in ETH (ex. 0.007 DAI)"
-    underlyingPrice: BigDecimal!
     "Underlying token symbol"
     underlyingSymbol: String!
 
@@ -61,8 +52,6 @@ type Market @entity {
     borrowIndex: BigDecimal!
     "The factor determining interest that goes to reserves"
     reserveFactor: BigInt!
-    "Underlying token price in USD"
-    underlyingPriceUSD: BigDecimal!
     "Underlying token decimal length"
     underlyingDecimals: Int!
 

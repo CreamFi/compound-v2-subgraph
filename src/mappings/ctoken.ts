@@ -22,13 +22,16 @@ import {
   RepayEvent,
 } from '../types/schema'
 
-import { createMarket, updateMarket } from './markets'
+import { createMarket } from './markets'
 import {
   createAccount,
   updateCommonCTokenStats,
   exponentToBigDecimal,
   cTokenDecimalsBD,
   cTokenDecimals,
+  mantissaFactor,
+  mantissaFactorBD,
+  zeroBD,
 } from './helpers'
 
 /* Account supplies assets into market and receives cTokens in exchange
@@ -59,6 +62,13 @@ export function handleMint(event: Mint): void {
     .toBigDecimal()
     .div(exponentToBigDecimal(market.underlyingDecimals))
     .truncate(market.underlyingDecimals)
+
+  if (cTokenAmount.gt(zeroBD)) {
+    market.exchangeRate = underlyingAmount.div(cTokenAmount).truncate(mantissaFactor)
+    market.totalSupply = market.totalSupply.plus(cTokenAmount)
+    market.cash = market.cash.plus(underlyingAmount)
+    market.save()
+  }
 
   let mint = new MintEvent(mintID)
   mint.amount = cTokenAmount
@@ -99,6 +109,13 @@ export function handleRedeem(event: Redeem): void {
     .div(exponentToBigDecimal(market.underlyingDecimals))
     .truncate(market.underlyingDecimals)
 
+  if (cTokenAmount.gt(zeroBD)) {
+    market.exchangeRate = underlyingAmount.div(cTokenAmount).truncate(mantissaFactor)
+    market.totalSupply = market.totalSupply.minus(cTokenAmount)
+    market.cash = market.cash.minus(underlyingAmount)
+    market.save()
+  }
+
   let redeem = new RedeemEvent(redeemID)
   redeem.amount = cTokenAmount
   redeem.cToken = event.address
@@ -129,6 +146,17 @@ export function handleBorrow(event: Borrow): void {
   account.hasBorrowed = true
   account.save()
 
+  let borrowAmountBD = event.params.borrowAmount
+    .toBigDecimal()
+    .div(exponentToBigDecimal(market.underlyingDecimals))
+
+  market.totalBorrows = event.params.totalBorrows
+    .toBigDecimal()
+    .div(exponentToBigDecimal(market.underlyingDecimals))
+    .truncate(market.underlyingDecimals)
+  market.cash = market.cash.minus(borrowAmountBD)
+  market.save()
+
   // Update cTokenStats common for all events, and return the stats to update unique
   // values for each event
   let cTokenStats = updateCommonCTokenStats(
@@ -140,10 +168,6 @@ export function handleBorrow(event: Borrow): void {
     event.block.number,
     event.logIndex,
   )
-
-  let borrowAmountBD = event.params.borrowAmount
-    .toBigDecimal()
-    .div(exponentToBigDecimal(market.underlyingDecimals))
 
   cTokenStats.storedBorrowBalance = event.params.accountBorrows
     .toBigDecimal()
@@ -204,6 +228,17 @@ export function handleRepayBorrow(event: RepayBorrow): void {
     createAccount(accountID)
   }
 
+  let repayAmountBD = event.params.repayAmount
+    .toBigDecimal()
+    .div(exponentToBigDecimal(market.underlyingDecimals))
+
+  market.totalBorrows = event.params.totalBorrows
+    .toBigDecimal()
+    .div(exponentToBigDecimal(market.underlyingDecimals))
+    .truncate(market.underlyingDecimals)
+  market.cash = market.cash.plus(repayAmountBD)
+  market.save()
+
   // Update cTokenStats common for all events, and return the stats to update unique
   // values for each event
   let cTokenStats = updateCommonCTokenStats(
@@ -215,10 +250,6 @@ export function handleRepayBorrow(event: RepayBorrow): void {
     event.block.number,
     event.logIndex,
   )
-
-  let repayAmountBD = event.params.repayAmount
-    .toBigDecimal()
-    .div(exponentToBigDecimal(market.underlyingDecimals))
 
   cTokenStats.storedBorrowBalance = event.params.accountBorrows
     .toBigDecimal()
@@ -445,7 +476,42 @@ export function handleTransfer(event: Transfer): void {
 }
 
 export function handleAccrueInterest(event: AccrueInterest): void {
-  updateMarket(event)
+  let marketID = event.address.toHexString()
+  let blockNumber = event.block.number.toI32()
+  let blockTimestamp = event.block.timestamp.toI32()
+
+  let market = Market.load(marketID)
+  if (market == null) {
+    market = createMarket(marketID)
+  }
+
+  market.accrualBlockNumber = blockNumber
+  market.blockTimestamp = blockTimestamp
+
+  market.cash = event.params.cashPrior
+    .toBigDecimal()
+    .div(exponentToBigDecimal(market.underlyingDecimals))
+    .truncate(market.underlyingDecimals)
+
+  market.totalInterestAccumulatedExact = market.totalInterestAccumulatedExact.plus(
+    event.params.interestAccumulated,
+  )
+  market.totalInterestAccumulated = market.totalInterestAccumulatedExact
+    .toBigDecimal()
+    .div(exponentToBigDecimal(market.underlyingDecimals))
+    .truncate(market.underlyingDecimals)
+
+  market.borrowIndex = event.params.borrowIndex
+    .toBigDecimal()
+    .div(mantissaFactorBD)
+    .truncate(mantissaFactor)
+
+  market.totalBorrows = event.params.totalBorrows
+    .toBigDecimal()
+    .div(exponentToBigDecimal(market.underlyingDecimals))
+    .truncate(market.underlyingDecimals)
+
+  market.save()
 }
 
 export function handleNewReserveFactor(event: NewReserveFactor): void {
